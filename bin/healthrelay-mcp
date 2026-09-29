@@ -1,0 +1,26 @@
+#!/bin/sh
+# Starts the read-only HealthRelay MCP server over stdio for your own receiver database.
+# The database path is never stored in this package. Resolution order:
+#   1. $HEALTHRELAY_DB
+#   2. first line of ~/.config/healthrelay/db-path
+# The launcher is `health-bridge` on PATH, or `uv run --directory $HEALTHRELAY_HOME health-bridge`
+# when HEALTHRELAY_HOME points at your health-relay checkout.
+set -eu
+
+db="${HEALTHRELAY_DB:-}"
+if [ -z "$db" ] && [ -r "$HOME/.config/healthrelay/db-path" ]; then
+  db="$(head -n 1 "$HOME/.config/healthrelay/db-path")"
+fi
+if [ -z "$db" ] || [ ! -f "$db" ]; then
+  echo "healthrelay: set HEALTHRELAY_DB or write your receiver database path to ~/.config/healthrelay/db-path" >&2
+  exit 2
+fi
+
+if command -v health-bridge >/dev/null 2>&1; then
+  exec health-bridge mcp start --db "$db"
+fi
+if [ -n "${HEALTHRELAY_HOME:-}" ] && command -v uv >/dev/null 2>&1; then
+  exec uv run --frozen --directory "$HEALTHRELAY_HOME" health-bridge mcp start --db "$db"
+fi
+echo "healthrelay: install the receiver (health-bridge) or set HEALTHRELAY_HOME to your health-relay checkout" >&2
+exit 2
