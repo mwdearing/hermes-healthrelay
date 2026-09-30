@@ -1,9 +1,9 @@
 #!/bin/sh
 # Starts the read-only HealthRelay MCP server over stdio for your own receiver database.
 # The database path is never stored in this package. Resolution order:
-#   1. first line of ~/.config/healthrelay/db-path  (the supported route)
-#   2. $HEALTHRELAY_DB  (only useful when running this script by hand: Hermes does not pass it to MCP servers)
-# The launcher is `health-bridge` on PATH.
+#   1. $HEALTHRELAY_DB  (only matters when you run this script by hand: Hermes does not pass it to MCP servers)
+#   2. first line of ~/.config/healthrelay/db-path  (the route Hermes uses)
+# The server is `health-bridge` on PATH.
 set -eu
 
 # --check mode: diagnose without starting the server
@@ -38,8 +38,6 @@ if [ "${1:-}" = "--check" ]; then
   launcher="none"
   if command -v health-bridge >/dev/null 2>&1; then
     launcher="$(command -v health-bridge)"
-  elif [ -n "${HEALTHRELAY_HOME:-}" ] && command -v uv >/dev/null 2>&1; then
-    launcher="uv run --directory $HEALTHRELAY_HOME health-bridge"
   fi
   echo "launcher: $launcher"
 
@@ -72,9 +70,6 @@ fi
 
 if command -v health-bridge >/dev/null 2>&1; then
   exec health-bridge mcp start --db "$db"
-fi
-if [ -n "${HEALTHRELAY_HOME:-}" ] && command -v uv >/dev/null 2>&1; then
-  exec uv run --frozen --directory "$HEALTHRELAY_HOME" health-bridge mcp start --db "$db"
 fi
 echo "healthrelay: install the receiver (health-bridge) so it is on the PATH Hermes runs with" >&2
 exit 2

@@ -61,7 +61,7 @@ out="$(run "$GOODPATH" HEALTHRELAY_DB="$root/db.sqlite" sh "$launcher" --check 2
 [ "$rc" = 0 ] && has "$out" "database source: environment (HEALTHRELAY_DB)" && ok "4 env source" || bad "4 env source (rc=$rc): $out"
 echo "$root/db.sqlite" > "$root/home/.config/healthrelay/db-path"
 
-# 5. no health-bridge and no HEALTHRELAY_HOME
+# 5. no health-bridge
 out="$(run "$BADPATH" /bin/sh "$launcher" --check 2>&1)"; rc=$?
 [ "$rc" = 2 ] && has "$out" "launcher: none" && has "$out" "result: NOT READY" && ok "5 no health-bridge" || bad "5 no health-bridge (rc=$rc): $out"
 
@@ -81,6 +81,16 @@ run "$GOODPATH" sh "$launcher" >/dev/null 2>&1; rc=$?
 rm -f "$root/home/.config/healthrelay/db-path"
 out="$(run "$GOODPATH" sh "$launcher" 2>&1)"; rc=$?
 [ "$rc" = 2 ] && has "$out" "healthrelay: write your receiver database path to ~/.config/healthrelay/db-path" && ok "7 unconfigured start unchanged" || bad "7 unconfigured start (rc=$rc): $out"
+
+# 8. HEALTHRELAY_HOME is not a supported route (Hermes strips it): with uv available but no health-bridge, both modes fail
+echo "$root/db.sqlite" > "$root/home/.config/healthrelay/db-path"
+mkdir -p "$root/uvbin"
+printf '#!/bin/sh\necho "$*" >> "$STUB_LOG"\n' > "$root/uvbin/uv"; chmod +x "$root/uvbin/uv"
+rm -f "$STUB_LOG"
+out="$(run "$root/uvbin:/usr/bin:/bin" HEALTHRELAY_HOME="$root" sh "$launcher" --check 2>&1)"; rc=$?
+[ "$rc" = 2 ] && has "$out" "launcher: none" && has "$out" "result: NOT READY" && ok "8 --check ignores HEALTHRELAY_HOME" || bad "8 --check ignores HEALTHRELAY_HOME (rc=$rc): $out"
+run "$root/uvbin:/usr/bin:/bin" HEALTHRELAY_HOME="$root" sh "$launcher" >/dev/null 2>&1; rc=$?
+[ "$rc" = 2 ] && [ ! -e "$STUB_LOG" ] && ok "8 normal start does not use uv" || bad "8 normal start used uv or exited $rc: $(cat "$STUB_LOG" 2>/dev/null)"
 
 [ "$fail" = 0 ] && echo "RESULT: PASS" || echo "RESULT: FAIL"
 exit "$fail"
