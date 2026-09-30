@@ -1,6 +1,6 @@
 ---
 name: healthrelay-troubleshoot
-description: "HealthRelay troubleshooting: missing, stale or wrong health data, sync stalled, empty metrics, MCP server not starting."
+description: HealthRelay troubleshooting - missing, stale or wrong health data, sync stalled, empty metrics, MCP server not starting.
 license: Apache-2.0
 ---
 
@@ -8,7 +8,7 @@ license: Apache-2.0
 
 Work from the outside in and change nothing until you know the cause.
 
-1. Start with the launcher check in a terminal: `~/.hermes/plugins/hermes-healthrelay/bin/healthrelay-mcp --check` (the plugin folder is under `~/.hermes/plugins/`; `hermes plugins list` shows it). `result: NOT READY` (exit 2) names the problem: no db-path file, unreadable database, or `health-bridge` not on PATH. See the `healthrelay-setup` skill. Then read the last lines of `~/.hermes/logs/mcp-stderr.log` (or `hermes logs mcp`) for the server's own error. If the healthrelay tools do not exist in this session at all, the server failed to start: fix it, then start a NEW session.
+1. Start with the launcher check in a terminal: `"${HERMES_HOME:-$HOME/.hermes}/plugins/healthrelay/bin/healthrelay-mcp" --check` (`hermes plugins list` shows the plugin name; the folder is named after it). The check reads `~/.config/healthrelay/db-path` from ITS shell's HOME and prints that HOME; the MCP server uses the Hermes process's HOME, which in Docker can differ from the agent terminal's. A `db-path (missing)` from the agent terminal does not prove the server has no path. `result: NOT READY` (exit 2) names the problem: no db-path file, unreadable database, or `health-bridge` not on PATH. See the `healthrelay-setup` skill. Then read the last lines of `~/.hermes/logs/mcp-stderr.log` (or `hermes logs mcp`) for the server's own error. If the healthrelay tools do not exist in this session at all, the server failed to start: fix it, then start a NEW session. If the log says `mcp package not installed`, the environment was rebuilt without the `mcp` extra (seen on images with no recorded extras): run `hermes pm install --extra mcp`, then start a new session. `hermes mcp list` and `hermes mcp test` do not show plugin-declared servers; use `hermes logs mcp` or the session tool list.
 2. If the tools exist, call `get_bridge_status`. It shows the last sync per lane. A database error mentioning "could not be read" means the path in `~/.config/healthrelay/db-path` is wrong or the file is unreadable.
 3. Nothing new arrives: if the receiver is up but the phone is not sending, check the app's Activity Log on the phone (lane names are shown on each row) and that Automatic Sync is on.
 4. One lane stuck behind others: the app's upload outbox is strictly first-in-first-out, so one permanently rejected item (an HTTP 4xx from the receiver) blocks every lane queued behind it. Look at the receiver's own log (its terminal output, or the journal of the service you run it as) for the rejected request; the app shows only sanitized text.

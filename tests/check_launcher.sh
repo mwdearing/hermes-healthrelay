@@ -36,6 +36,8 @@ out="$(run "$GOODPATH" sh "$launcher" --check 2>&1)"; rc=$?
 [ "$rc" = 2 ] && ok "1 unconfigured exits 2" || bad "1 unconfigured exits 2 (rc=$rc)"
 has "$out" "database source: none" && ok "1 source none" || bad "1 source none: $out"
 has "$out" "result: NOT READY" && has "$out" "~/.config/healthrelay/db-path" && ok "1 fix-it line" || bad "1 fix-it line: $out"
+has "$out" "home used for db-path: $root/home" && ok "1 prints the HOME it resolved" || bad "1 prints the HOME it resolved: $out"
+has "$out" "db-path file: $root/home/.config/healthrelay/db-path (missing)" && ok "1 db-path file missing" || bad "1 db-path file missing: $out"
 
 # 2. db-path names a missing file
 echo "$root/missing.sqlite" > "$root/home/.config/healthrelay/db-path"
@@ -48,6 +50,8 @@ rm -f "$STUB_LOG"
 out="$(run "$GOODPATH" sh "$launcher" --check 2>&1)"; rc=$?
 [ "$rc" = 0 ] && ok "3 ready exits 0" || bad "3 ready exits 0 (rc=$rc): $out"
 has "$out" "database source: db-path file" && ok "3 source" || bad "3 source: $out"
+has "$out" "home used for db-path: $root/home" && ok "3 home line" || bad "3 home line: $out"
+has "$out" "db-path file: $root/home/.config/healthrelay/db-path (found)" && ok "3 db-path file found" || bad "3 db-path file found: $out"
 has "$out" "database path: $root/db.sqlite" && ok "3 path" || bad "3 path: $out"
 has "$out" "database readable: yes" && ok "3 readable" || bad "3 readable: $out"
 has "$out" "launcher: $root/bin/health-bridge" && ok "3 launcher" || bad "3 launcher: $out"
@@ -91,6 +95,12 @@ out="$(run "$root/uvbin:/usr/bin:/bin" HEALTHRELAY_HOME="$root" sh "$launcher" -
 [ "$rc" = 2 ] && has "$out" "launcher: none" && has "$out" "result: NOT READY" && ok "8 --check ignores HEALTHRELAY_HOME" || bad "8 --check ignores HEALTHRELAY_HOME (rc=$rc): $out"
 run "$root/uvbin:/usr/bin:/bin" HEALTHRELAY_HOME="$root" sh "$launcher" >/dev/null 2>&1; rc=$?
 [ "$rc" = 2 ] && [ ! -e "$STUB_LOG" ] && ok "8 normal start does not use uv" || bad "8 normal start used uv or exited $rc: $(cat "$STUB_LOG" 2>/dev/null)"
+
+# 9. docs: install folder is the manifest name, not the repo name; descriptions are unquoted
+if grep -rn "plugins/hermes-healthrelay" "$here/README.md" "$here/skills" >/dev/null 2>&1; then bad "9 docs still say plugins/hermes-healthrelay"; else ok "9 no plugins/hermes-healthrelay in docs"; fi
+grep -q 'plugins/healthrelay' "$here/README.md" && ok "9 README names plugins/healthrelay" || bad "9 README names plugins/healthrelay"
+if grep -n '^description: "' "$here"/skills/*/SKILL.md >/dev/null 2>&1; then bad "9 quoted description in a SKILL.md"; else ok "9 descriptions unquoted"; fi
+grep -q 'hermes plugins install mwdearing/hermes-healthrelay --force --ref' "$here/README.md" && ok "9 README has the --force --ref upgrade" || bad "9 README has the --force --ref upgrade"
 
 [ "$fail" = 0 ] && echo "RESULT: PASS" || echo "RESULT: FAIL"
 exit "$fail"

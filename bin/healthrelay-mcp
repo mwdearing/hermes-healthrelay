@@ -9,6 +9,14 @@ set -eu
 # --check mode: diagnose without starting the server
 if [ "${1:-}" = "--check" ]; then
   echo "healthrelay check"
+  # The db-path file is read from the HOME of the Hermes process (the MCP server's HOME). If this check
+  # runs from another shell (or, in Docker, the agent terminal) the HOME can differ: compare this line.
+  echo "home used for db-path: $HOME"
+  if [ -r "$HOME/.config/healthrelay/db-path" ]; then
+    echo "db-path file: $HOME/.config/healthrelay/db-path (found)"
+  else
+    echo "db-path file: $HOME/.config/healthrelay/db-path (missing)"
+  fi
 
   db="${HEALTHRELAY_DB:-}"
   db_source="none"

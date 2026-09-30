@@ -17,9 +17,18 @@ hermes plugins enable healthrelay
 ```
 Then follow the `healthrelay-setup` skill: install the receiver and the app from [health-relay](https://github.com/mwdearing/health-relay) (use the latest **stable** release), and write your receiver database path on one line to `~/.config/healthrelay/db-path`. That file is the one supported route; environment variables exported in the Hermes shell do not reach the plugin. Then check it and start a new Hermes session:
 ```bash
-~/.hermes/plugins/hermes-healthrelay/bin/healthrelay-mcp --check
+"${HERMES_HOME:-$HOME/.hermes}/plugins/healthrelay/bin/healthrelay-mcp" --check
 ```
-`--check` prints the database source, path and readability, the `health-bridge` launcher and version, and ends with `result: OK` (exit 0) or `result: NOT READY` (exit 2). The MCP server only loads at session start. Clearer tool descriptions and error messages arrive with the next HealthRelay receiver release.
+Hermes names the install folder after the plugin manifest (`healthrelay`), not the repository; `hermes plugins list` shows the name. `--check` prints the HOME it read the db-path file from, the database source, path and readability, the `health-bridge` it found on PATH and its version, and ends with `result: OK` (exit 0) or `result: NOT READY` (exit 2). The db-path file must be in the HOME of the Hermes process, because that is the HOME the MCP server gets; on a plain host that is your normal HOME, in Docker it can differ from the agent terminal's HOME. The MCP server only loads at session start. Clearer tool descriptions and error messages arrive with the next HealthRelay receiver release.
+
+If the healthrelay tools are missing after you enable the plugin, look in `hermes logs mcp` (or `~/.hermes/logs/mcp-stderr.log`) for `mcp package not installed`. Some images (for example the Docker image) have no recorded dependency selection, and enabling a plugin then rebuilds the environment without the `mcp` extra; run `hermes pm install --extra mcp`, then start a new session. A plain host install that already records extras keeps `mcp` and does not need this. Plugin-declared MCP servers do not appear in `hermes mcp list` or `hermes mcp test`; check `hermes logs mcp` or the tool list of a new session instead.
+
+## Upgrade
+`hermes plugins update healthrelay` refuses installs pinned to a commit. Move to a new commit with:
+```bash
+hermes plugins install mwdearing/hermes-healthrelay --force --ref <40-character commit sha>
+```
+`--force` keeps the plugin enabled or disabled as it was. Start a new session afterwards.
 
 ## What you get
 | Piece | Purpose |
@@ -46,10 +55,10 @@ Date ranges use `YYYY-MM-DD` with an inclusive start and an EXCLUSIVE end (one d
 
 ## Uninstall
 ```bash
-hermes plugins uninstall hermes-healthrelay
+hermes plugins uninstall healthrelay
 rm -f ~/.config/healthrelay/db-path    # optional: forget the database path
 ```
-Use the folder name that `hermes plugins list` shows if it differs. This removes the plugin only; the receiver, its database and the iPhone app are untouched.
+Use the name that `hermes plugins list` shows. This removes the plugin only; the receiver, its database and the iPhone app are untouched.
 
 ## License
 Apache-2.0. Not affiliated with Apple. Informational only, not medical advice.

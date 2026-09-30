@@ -1,6 +1,6 @@
 ---
 name: healthrelay-review
-description: "Apple Health review through HealthRelay: summaries, trends, workouts, sleep, sync gaps. Read-only, aggregates first, no medical advice."
+description: Apple Health review through HealthRelay - summaries, trends, workouts, sleep, sync gaps. Read-only, aggregates first, no medical advice.
 license: Apache-2.0
 ---
 
