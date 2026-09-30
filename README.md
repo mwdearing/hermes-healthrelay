@@ -4,6 +4,8 @@ A [Hermes Agent](https://github.com/NousResearch/hermes-agent) plugin that gives
 
 It is a portable Agent Plugins v1 package: one stdio MCP server plus three skills. It does **not** contain the receiver or the iPhone app.
 
+Setting up the whole chain (app and receiver, this plugin, hermes-health-insights, hermes-medlog)? Follow the [Full setup guide](https://github.com/mwdearing/health-relay/blob/main/docs/full-setup.md): one ordered walkthrough with a check after each step.
+
 ## Privacy and trust
 - Your data stays on your machine. The MCP server reads your local receiver database; nothing is sent to a hosted relay.
 - The MCP tools are read-only. There is no raw SQL and there are no write tools.
