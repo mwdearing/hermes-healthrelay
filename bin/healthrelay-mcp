@@ -1,18 +1,72 @@
 #!/bin/sh
 # Starts the read-only HealthRelay MCP server over stdio for your own receiver database.
 # The database path is never stored in this package. Resolution order:
-#   1. $HEALTHRELAY_DB
-#   2. first line of ~/.config/healthrelay/db-path
-# The launcher is `health-bridge` on PATH, or `uv run --directory $HEALTHRELAY_HOME health-bridge`
-# when HEALTHRELAY_HOME points at your health-relay checkout.
+#   1. first line of ~/.config/healthrelay/db-path  (the supported route)
+#   2. $HEALTHRELAY_DB  (only useful when running this script by hand: Hermes does not pass it to MCP servers)
+# The launcher is `health-bridge` on PATH.
 set -eu
+
+# --check mode: diagnose without starting the server
+if [ "${1:-}" = "--check" ]; then
+  echo "healthrelay check"
+
+  db="${HEALTHRELAY_DB:-}"
+  db_source="none"
+  if [ -n "$db" ]; then
+    db_source="environment (HEALTHRELAY_DB)"
+  elif [ -r "$HOME/.config/healthrelay/db-path" ]; then
+    db="$(head -n 1 "$HOME/.config/healthrelay/db-path")"
+    db_source="db-path file (~/.config/healthrelay/db-path)"
+  fi
+  echo "database source: $db_source"
+
+  if [ -n "$db" ]; then
+    echo "database path: $db"
+    if [ -f "$db" ] && [ -r "$db" ]; then
+      echo "database readable: yes"
+    elif [ -f "$db" ]; then
+      echo "database readable: no (permission denied)"
+    else
+      echo "database readable: no (file not found)"
+    fi
+  else
+    echo "database path: (not set)"
+    echo "database readable: no (no path configured)"
+  fi
+
+  # Launcher detection
+  launcher="none"
+  if command -v health-bridge >/dev/null 2>&1; then
+    launcher="$(command -v health-bridge)"
+  elif [ -n "${HEALTHRELAY_HOME:-}" ] && command -v uv >/dev/null 2>&1; then
+    launcher="uv run --directory $HEALTHRELAY_HOME health-bridge"
+  fi
+  echo "launcher: $launcher"
+
+  # Version
+  if [ "$launcher" != "none" ] && command -v health-bridge >/dev/null 2>&1; then
+    ver="$(health-bridge --version 2>/dev/null || true)"
+    echo "health-bridge version: ${ver:-unknown}"
+  else
+    echo "health-bridge version: unknown"
+  fi
+
+  # Final result
+  if [ -n "$db" ] && [ -f "$db" ] && [ -r "$db" ] && [ "$launcher" != "none" ]; then
+    echo "result: OK (could start)"
+    exit 0
+  else
+    echo "result: NOT READY - write your receiver database path to ~/.config/healthrelay/db-path and make sure health-bridge is on PATH"
+    exit 2
+  fi
+fi
 
 db="${HEALTHRELAY_DB:-}"
 if [ -z "$db" ] && [ -r "$HOME/.config/healthrelay/db-path" ]; then
   db="$(head -n 1 "$HOME/.config/healthrelay/db-path")"
 fi
 if [ -z "$db" ] || [ ! -f "$db" ]; then
-  echo "healthrelay: set HEALTHRELAY_DB or write your receiver database path to ~/.config/healthrelay/db-path" >&2
+  echo "healthrelay: write your receiver database path to ~/.config/healthrelay/db-path (then start a new session)" >&2
   exit 2
 fi
 
@@ -22,5 +76,5 @@ fi
 if [ -n "${HEALTHRELAY_HOME:-}" ] && command -v uv >/dev/null 2>&1; then
   exec uv run --frozen --directory "$HEALTHRELAY_HOME" health-bridge mcp start --db "$db"
 fi
-echo "healthrelay: install the receiver (health-bridge) or set HEALTHRELAY_HOME to your health-relay checkout" >&2
+echo "healthrelay: install the receiver (health-bridge) so it is on the PATH Hermes runs with" >&2
 exit 2
