@@ -35,7 +35,7 @@ hermes plugins install mwdearing/hermes-healthrelay --force --ref <40-character 
 ## What you get
 | Piece | Purpose |
 | --- | --- |
-| MCP server `healthrelay` | Nine read-only tools, listed below |
+| MCP server `healthrelay` | Ten read-only tools, listed below |
 | Skill `healthrelay-setup` | Connect the receiver and verify the first sync |
 | Skill `healthrelay-review` | Answer questions with aggregates first, flag data quality, no medical advice |
 | Skill `healthrelay-troubleshoot` | Find why data is missing or stale |
@@ -52,6 +52,9 @@ hermes plugins install mwdearing/hermes-healthrelay --force --ref <40-character 
 | `get_sleep_summary` | Sleep sessions and time per stage in a date range |
 | `get_daily_summary` | Per-day totals and statistics across metrics |
 | `explain_sources` | The devices and apps behind the data |
+| `get_intake_evidence_v1` | Which HealthKit sample each intake component claims and whether it is stored here from the registered writer; metadata only |
+
+Intake evidence needs a receiver with migrations 013 and 014; an older receiver returns an empty answer.
 
 Date ranges use `YYYY-MM-DD` with an inclusive start and an EXCLUSIVE end (one day is `2026-06-03` to `2026-06-04`); timestamps look like `2026-06-01T00:00:00Z`.
 
