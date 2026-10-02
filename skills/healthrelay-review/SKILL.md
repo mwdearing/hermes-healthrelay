@@ -6,7 +6,7 @@ license: Apache-2.0
 
 # Reviewing Apple Health data with HealthRelay
 
-Tools (all read-only): `get_bridge_status`, `get_bridge_context_markdown`, `list_supported_timeseries_types`, `list_synced_metrics`, `get_timeseries`, `get_workouts`, `get_sleep_summary`, `get_daily_summary`, `explain_sources`.
+Tools (all read-only): `get_bridge_status`, `get_bridge_context_markdown`, `list_supported_timeseries_types`, `list_synced_metrics`, `get_timeseries`, `get_workouts`, `get_sleep_summary`, `get_daily_summary`, `explain_sources`, `get_intake_evidence_v1`.
 
 Date and type rules
 - `start_date` is inclusive and `end_date` is EXCLUSIVE: for one day use `2026-06-03` to `2026-06-04`. Equal dates give an empty window.
@@ -21,6 +21,22 @@ Method
 3. Use `explain_sources` when two sources disagree or a number looks odd (for example a step count from both watch and phone).
 4. Report aggregates, ranges and changes with the dates they cover. Convert units to the user's preference (ask once if unknown).
 5. Flag data quality problems (single outlier samples, missing days, mixed units) instead of averaging them in silently.
+
+Intake evidence (`get_intake_evidence_v1`, read-only)
+- Args: `owner_id` (optional; defaults to the single registered owner; error when none or several are registered), `intake_id` (limit to one intake), `cursor` (the previous `next_cursor`, pass unchanged), `limit` (1-500, default 100). A bad cursor, bad limit or unknown argument gives an error naming the problem.
+- Result: `items[]` and `next_cursor` (null = last page). Item: producer_id, intake_id, revision, component_id, kind, code, amount (decimal string), unit, value_state, sample_uuid, healthkit_type, writer_bundle_id, client_record_id, link_status, complete. Metadata and identifiers only, no sample values.
+- Two producers may share an intake_id, so always read producer_id too. Only the newest accepted revision of an intake appears; deleted intakes are excluded.
+
+| link_status | Meaning |
+| --- | --- |
+| verified | Stored sample matches by exact id, quantity type and registered writer |
+| pending | No stored sample with that id yet (export may not have arrived) |
+| unlinked | Component has no active link |
+| mismatch | Claimed sample conflicts with stored data: other quantity type, other writer or writer missing, another component claims the same sample, or the sample was deleted at its source and will never arrive |
+
+- `complete` is false for every item of a component with an active link not yet verified. A component with no link is complete (nothing awaited).
+- Unknown is not zero. pending, unlinked or complete:false is missing evidence, never a zero intake; say what is unknown.
+- mismatch: report it, do not fix or reinterpret the data. Repair is a re-sync from the phone app (open the app, run a sync, query again). Never edit the database.
 
 Limits
 - Informational only. Do not diagnose, prescribe or change medication. Suggest they discuss concerns with a clinician.

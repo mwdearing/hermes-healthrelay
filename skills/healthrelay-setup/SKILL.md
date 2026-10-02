@@ -18,4 +18,13 @@ Where the plugin lives: Hermes installs it under its home directory, `~/.hermes/
 5. Start a NEW Hermes session. The MCP server only loads at session start, so a db-path file written mid-session is not picked up until then. If the check is OK but the healthrelay tools are still missing in the new session, load the `healthrelay-troubleshoot` skill.
 6. Verify with `get_bridge_status`, then `list_synced_metrics`. A healthy setup shows recent syncs and a non-empty metric list.
 
+Three readiness questions
+Answer each separately; one passing does not imply another.
+
+| Question | Passes when | Does not tell you |
+| --- | --- | --- |
+| Launch readiness | The launcher starts and `bin/healthrelay-mcp --check` ends `result: OK (could start)`. It checks only the db-path file / `HEALTHRELAY_DB` source, that the database file exists and is readable, `health-bridge` on PATH, and its version. | Anything about schema or data: it never opens the database. |
+| Schema readiness | The receiver database has the migrations the tools need. For intake context: 013 (`013_intake_context.sql`: intake_producers, intake_state, intake_revisions, intake_compound_facts, intake_blend_members, intake_projection_snapshots, intake_sample_links, intake_operation_receipts, intake_tombstones) and 014 (`014_intake_context_tokens.sql`: intake_context_tokens). | An older receiver gives an empty intake answer, not an error. Tell by: `tools/list` (the session tool list) lacks `get_intake_evidence_v1`, or the tool reports "no intake owner registered". Fix: upgrade the receiver to a release that includes the intake evidence tool, let it migrate, then start a NEW session. |
+| Freshness readiness | Data arrived recently: `get_bridge_status` (last sync per lane) and `list_synced_metrics`. | Stale data with launch and schema fine is a phone/sync problem, not a launcher problem. |
+
 Never paste the database path, pairing codes or tokens into chat logs, notes or issues.

@@ -8,6 +8,18 @@ license: Apache-2.0
 
 Work from the outside in and change nothing until you know the cause.
 
+First decide which of three readiness questions is failing.
+
+Answer each separately; one passing does not imply another.
+
+| Question | Passes when | Does not tell you |
+| --- | --- | --- |
+| Launch readiness | The launcher starts and `bin/healthrelay-mcp --check` ends `result: OK (could start)`. It checks only the db-path file / `HEALTHRELAY_DB` source, that the database file exists and is readable, `health-bridge` on PATH, and its version. | Anything about schema or data: it never opens the database. |
+| Schema readiness | The receiver database has the migrations the tools need. For intake context: 013 (`013_intake_context.sql`: intake_producers, intake_state, intake_revisions, intake_compound_facts, intake_blend_members, intake_projection_snapshots, intake_sample_links, intake_operation_receipts, intake_tombstones) and 014 (`014_intake_context_tokens.sql`: intake_context_tokens). | An older receiver gives an empty intake answer, not an error. Tell by: `tools/list` (the session tool list) lacks `get_intake_evidence_v1`, or the tool reports "no intake owner registered". Fix: upgrade the receiver to a release that includes the intake evidence tool, let it migrate, then start a NEW session. |
+| Freshness readiness | Data arrived recently: `get_bridge_status` (last sync per lane) and `list_synced_metrics`. | Stale data with launch and schema fine is a phone/sync problem (steps 3-4), not a launcher problem. |
+
+Steps:
+
 1. Start with the launcher check in a terminal: `"${HERMES_HOME:-$HOME/.hermes}/plugins/healthrelay/bin/healthrelay-mcp" --check` (`hermes plugins list` shows the plugin name; the folder is named after it). The check reads `~/.config/healthrelay/db-path` from ITS shell's HOME and prints that HOME; the MCP server uses the Hermes process's HOME, which in Docker can differ from the agent terminal's. A `db-path (missing)` from the agent terminal does not prove the server has no path. `result: NOT READY` (exit 2) names the problem: no db-path file, unreadable database, or `health-bridge` not on PATH. See the `healthrelay-setup` skill. Then read the last lines of `~/.hermes/logs/mcp-stderr.log` (or `hermes logs mcp`) for the server's own error. If the healthrelay tools do not exist in this session at all, the server failed to start: fix it, then start a NEW session. If the log says `mcp package not installed`, the environment was rebuilt without the `mcp` extra (seen on images with no recorded extras): run `hermes pm install --extra mcp`, then start a new session. `hermes mcp list` and `hermes mcp test` do not show plugin-declared servers; use `hermes logs mcp` or the session tool list.
 2. If the tools exist, call `get_bridge_status`. It shows the last sync per lane. A database error mentioning "could not be read" means the path in `~/.config/healthrelay/db-path` is wrong or the file is unreadable.
 3. Nothing new arrives: if the receiver is up but the phone is not sending, check the app's Activity Log on the phone (lane names are shown on each row) and that Automatic Sync is on.
