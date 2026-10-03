@@ -102,5 +102,47 @@ grep -q 'plugins/healthrelay' "$here/README.md" && ok "9 README names plugins/he
 if grep -n '^description: "' "$here"/skills/*/SKILL.md >/dev/null 2>&1; then bad "9 quoted description in a SKILL.md"; else ok "9 descriptions unquoted"; fi
 grep -q 'hermes plugins install mwdearing/hermes-healthrelay --force --ref' "$here/README.md" && ok "9 README has the --force --ref upgrade" || bad "9 README has the --force --ref upgrade"
 
+# 10. schema line: intake-context readiness reported read-only (synthetic databases in the scratch dir)
+if ! command -v sqlite3 >/dev/null 2>&1; then
+  echo "NOTE 10 skipped: sqlite3 is not installed on this machine"
+else
+  sqlite3 "$root/new.sqlite" "create table schema_migrations (migration_id text primary key, applied_at text);
+    insert into schema_migrations values ('012_lab_results','2026-10-03T00:00:00Z');
+    insert into schema_migrations values ('013_intake_context','2026-10-03T00:00:00Z');
+    insert into schema_migrations values ('014_intake_context_tokens','2026-10-03T00:00:00Z');
+    create table samples (value real); insert into samples values (123.456);" >/dev/null 2>&1
+  sqlite3 "$root/old.sqlite" "create table schema_migrations (migration_id text primary key, applied_at text);
+    insert into schema_migrations values ('012_lab_results','2026-10-03T00:00:00Z');
+    create table samples (value real); insert into samples values (123.456);" >/dev/null 2>&1
+  echo "not a database, synthetic text" > "$root/junk.sqlite"
+
+  out="$(run "$GOODPATH" HEALTHRELAY_DB="$root/new.sqlite" sh "$launcher" --check 2>&1)"; rc=$?
+  has "$out" "schema: intake context ready (migrations 013, 014)" && ok "10 new receiver: schema ready" || bad "10 new receiver: schema ready: $out"
+  [ "$rc" = 0 ] && has "$out" "result: OK" && ok "10 new receiver: exit and result unchanged" || bad "10 new receiver: exit and result unchanged (rc=$rc): $out"
+  has "$out" "123.456" && bad "10 new receiver: printed a data value" || ok "10 new receiver: no data values printed"
+
+  out="$(run "$GOODPATH" HEALTHRELAY_DB="$root/old.sqlite" sh "$launcher" --check 2>&1)"; rc=$?
+  has "$out" "schema: intake context not available (receiver older than migration 013/014)" && ok "10 old receiver: schema not available" || bad "10 old receiver: schema not available: $out"
+  [ "$rc" = 0 ] && has "$out" "result: OK" && ok "10 old receiver: exit and result unchanged" || bad "10 old receiver: exit and result unchanged (rc=$rc): $out"
+  has "$out" "123.456" && bad "10 old receiver: printed a data value" || ok "10 old receiver: no data values printed"
+
+  out="$(run "$GOODPATH" HEALTHRELAY_DB="$root/junk.sqlite" sh "$launcher" --check 2>&1)"; rc=$?
+  has "$out" "schema: not checked (database unreadable as SQLite)" && ok "10 non-SQLite file: schema not checked" || bad "10 non-SQLite file: schema not checked: $out"
+  [ "$rc" = 0 ] && has "$out" "result: OK" && ok "10 non-SQLite file: exit and result unchanged" || bad "10 non-SQLite file: exit and result unchanged (rc=$rc): $out"
+
+  mkdir -p "$root/nosqlite"
+  for t in sh head cat grep sed tr awk dirname basename printf; do
+    [ -e "/usr/bin/$t" ] && ln -sf "/usr/bin/$t" "$root/nosqlite/$t"
+  done
+  ln -sf "$root/bin/health-bridge" "$root/nosqlite/health-bridge"
+  out="$(run "$root/nosqlite" HEALTHRELAY_DB="$root/new.sqlite" sh "$launcher" --check 2>&1)"; rc=$?
+  has "$out" "schema: not checked (sqlite3 not found)" && ok "10 no sqlite3 on PATH: schema not checked" || bad "10 no sqlite3 on PATH: schema not checked: $out"
+  [ "$rc" = 0 ] && has "$out" "result: OK" && ok "10 no sqlite3 on PATH: exit and result unchanged" || bad "10 no sqlite3 on PATH: exit and result unchanged (rc=$rc): $out"
+
+  rm -f "$root/home/.config/healthrelay/db-path"
+  out="$(run "$GOODPATH" sh "$launcher" --check 2>&1)"
+  has "$out" "schema:" && bad "10 unconfigured: printed a schema line" || ok "10 unconfigured: no schema line"
+fi
+
 [ "$fail" = 0 ] && echo "RESULT: PASS" || echo "RESULT: FAIL"
 exit "$fail"
