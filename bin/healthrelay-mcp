@@ -42,6 +42,27 @@ if [ "${1:-}" = "--check" ]; then
     echo "database readable: no (no path configured)"
   fi
 
+  # Schema readiness (informational only: never changes the exit code or the result line below).
+  # Reads only the migration bookkeeping, never a data table, and never prints a data value.
+  if [ -n "$db" ] && [ -f "$db" ] && [ -r "$db" ]; then
+    if ! command -v sqlite3 >/dev/null 2>&1; then
+      echo "schema: not checked (sqlite3 not found)"
+    else
+      if applied="$(sqlite3 -readonly "$db" "select migration_id from schema_migrations where migration_id in ('013_intake_context','014_intake_context_tokens');" 2>/dev/null)"; then
+        has13=0; has14=0
+        case "$applied" in *013_intake_context*) has13=1;; esac
+        case "$applied" in *014_intake_context_tokens*) has14=1;; esac
+        if [ "$has13" = 1 ] && [ "$has14" = 1 ]; then
+          echo "schema: intake context ready (migrations 013, 014)"
+        else
+          echo "schema: intake context not available (receiver older than migration 013/014)"
+        fi
+      else
+        echo "schema: not checked (database unreadable as SQLite)"
+      fi
+    fi
+  fi
+
   # Launcher detection
   launcher="none"
   if command -v health-bridge >/dev/null 2>&1; then
