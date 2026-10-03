@@ -63,7 +63,7 @@ hermes plugins install mwdearing/hermes-healthrelay --force --ref <40-character 
 | `explain_sources` | The devices and apps behind the data |
 | `get_intake_evidence_v1` | Which HealthKit sample each intake component claims and whether it is stored here from the registered writer; metadata only |
 
-Intake evidence needs a receiver with migrations 013 and 014; an older receiver returns an empty answer.
+Intake evidence needs a receiver with migrations 013 and 014; an older receiver returns an empty answer. Receiving intake context is opt-in on the receiver: register the producer, issue its token into a private file with `intake-create-token --output-secret` and start the receiver with `--enable-intake-context`, then confirm with `health-bridge receiver intake-smoke`. The `healthrelay-setup` skill has the ordered flow and `healthrelay-troubleshoot` has the symptom table; the same evidence page is readable from a terminal with `health-bridge query intake-evidence --db <db>`.
 
 Date ranges use `YYYY-MM-DD` with an inclusive start and an EXCLUSIVE end (one day is `2026-06-03` to `2026-06-04`); timestamps look like `2026-06-01T00:00:00Z`.
 

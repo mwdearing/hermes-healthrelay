@@ -27,4 +27,19 @@ Answer each separately; one passing does not imply another.
 | Schema readiness | `--check` also prints one `schema:` line when a readable database path is set: `intake context ready (migrations 013, 014)`, `intake context not available (receiver older than migration 013/014)`, `not checked (database unreadable as SQLite)` or `not checked (sqlite3 not found)`. | It reads only the migration list, never your data, and never changes the exit code. |
 | Freshness readiness | Data arrived recently: `get_bridge_status` (last sync per lane) and `list_synced_metrics`. | Stale data with launch and schema fine is a phone/sync problem, not a launcher problem. |
 
+Optional: intake context (a nutrition or supplement app)
+The receiver side lives in health-relay, so these commands run on the receiver host, not through this plugin. Only needed when the user wants intake context; the measurement path works without it.
+1. Register the app once as a producer: `health-bridge receiver intake-register-producer --db <db> --owner-id <id> --producer-id <id> --writer-bundle-id <bundle> --label <label>`. It is idempotent for identical details and fails closed on a different writer bundle or label. Registering a revoked producer fails and names `intake-reactivate-producer`.
+2. Issue its token into a private file: `health-bridge receiver intake-create-token --db <db> --owner-id <id> --producer-id <id> --label <label> --output-secret <private file>`. Prefer --output-secret and avoid `--print-secret`: stdout then carries only the token prefix and the path, and the file is created mode 0600. Only a hash is stored. Never paste, print, share or send the token, and never read the file back into chat; tell the user where the file is so they can move the token into the app themselves.
+3. Start (or restart) the receiver with `--enable-intake-context` on `health-bridge receiver start --db <db>`. The batch routes are off by default and answer 404 until the flag is passed. Add `--request-timeout <seconds>` to bound one HTTP request (over 0, at most 300; default 30).
+4. Check the receiver really serves them: `health-bridge receiver intake-smoke --url <receiver URL> --token-file <file>`. It reads the token from the file, prints one JSON line with the HTTP status and the capability fields, and exits 0 on 200.
+5. Inspect evidence locally: `health-bridge query intake-evidence --db <db> [--intake-id <id>] [--all]`. Read-only, same JSON as the `get_intake_evidence_v1` MCP tool.
+6. Revoke or rotate with `health-bridge receiver intake-list-tokens` (prefixes only), `intake-revoke-token --token-prefix <prefix>`, `intake-revoke-producer` (retires the producer and every token it owns) and `intake-reactivate-producer` (restores the identity, not the credentials: issue a new token afterwards).
+
+| `intake-smoke` says | Means | Do |
+| --- | --- | --- |
+| 200 | Routes enabled and the token works | Nothing; intake uploads will land |
+| 404 | Routes not enabled | Restart the receiver with `--enable-intake-context` |
+| 401 or 403 | Token or producer revoked | Issue a new token, or reactivate the producer |
+
 Never paste the database path, pairing codes or tokens into chat logs, notes or issues.
