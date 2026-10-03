@@ -23,6 +23,15 @@ Then follow the `healthrelay-setup` skill: install the receiver and the app from
 ```
 Hermes names the install folder after the plugin manifest (`healthrelay`), not the repository; `hermes plugins list` shows the name. `--check` prints the HOME it read the db-path file from, the database source, path and readability, the `health-bridge` it found on PATH and its version, and ends with `result: OK` (exit 0) or `result: NOT READY` (exit 2). When a readable database path is set it also prints one `schema:` line saying whether the receiver has the intake-context migrations 013 and 014 (`intake context ready`, `intake context not available`, or `not checked` with the reason); that line only reads the migration list, never your data, and never changes the exit code. The db-path file must be in the HOME of the Hermes process, because that is the HOME the MCP server gets; on a plain host that is your normal HOME, in Docker it can differ from the agent terminal's HOME. The MCP server only loads at session start. Clearer tool descriptions and error messages arrive with the next HealthRelay receiver release.
 
+Add `--json` to the same command for the machine-readable form: one JSON object on stdout, nothing else, with the same exit codes. It is meant for scripts and agents, not for reading by eye.
+```bash
+"${HERMES_HOME:-$HOME/.hermes}/plugins/healthrelay/bin/healthrelay-mcp" --check --json
+```
+```json
+{"home": "/home/you", "db_path_file": "/home/you/.config/healthrelay/db-path", "db_path_file_found": true, "database_source": "db_path_file", "database_path": "/path/to/receiver.sqlite", "database_readable": true, "launcher": "/usr/local/bin/health-bridge", "health_bridge_version": "health-bridge 1.4.0", "schema": "ready", "result": "ok"}
+```
+`database_source` is `environment` (a `HEALTHRELAY_DB` you exported yourself), `db_path_file` or `none`; `database_path`, `launcher` and `health_bridge_version` are `null` when nothing is set; `schema` is `ready`, `not_available` or `not_checked`; `result` is `ok` (exit 0) or `not_ready` (exit 2). The plain `--check` report is unchanged.
+
 If the healthrelay tools are missing after you enable the plugin, look in `hermes logs mcp` (or `~/.hermes/logs/mcp-stderr.log`) for `mcp package not installed`. Some images (for example the Docker image) have no recorded dependency selection, and enabling a plugin then rebuilds the environment without the `mcp` extra; run `hermes pm install --extra mcp`, then start a new session. A plain host install that already records extras keeps `mcp` and does not need this. Plugin-declared MCP servers do not appear in `hermes mcp list` or `hermes mcp test`; check `hermes logs mcp` or the tool list of a new session instead.
 
 ## Upgrade
