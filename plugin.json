@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "healthrelay",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Read-only access to your own Apple Health data through a self-hosted HealthRelay receiver, with skills for setup, review and troubleshooting.",
   "homepage": "https://github.com/mwdearing/hermes-healthrelay",
   "repository": "https://github.com/mwdearing/hermes-healthrelay",
