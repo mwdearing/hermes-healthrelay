@@ -32,7 +32,7 @@ The receiver side lives in health-relay, so these commands run on the receiver h
 1. Register the app once as a producer: `health-bridge receiver intake-register-producer --db <db> --owner-id <id> --producer-id <id> --writer-bundle-id <bundle> --label <label>`. It is idempotent for identical details and fails closed on a different writer bundle or label. Registering a revoked producer fails and names `intake-reactivate-producer`.
 2. Issue its token into a private file: `health-bridge receiver intake-create-token --db <db> --owner-id <id> --producer-id <id> --label <label> --output-secret <private file>`. Prefer --output-secret and avoid `--print-secret`: stdout then carries only the token prefix and the path, and the file is created mode 0600. Only a hash is stored. Never paste, print, share or send the token, and never read the file back into chat; tell the user where the file is so they can move the token into the app themselves.
 3. Start (or restart) the receiver with `--enable-intake-context` on `health-bridge receiver start --db <db>`. The batch routes are off by default and answer 404 until the flag is passed. Add `--request-timeout <seconds>` to bound one HTTP request (over 0, at most 300; default 30).
-4. Check the receiver really serves them: `health-bridge receiver intake-smoke --url <receiver URL> --token-file <file>`. It reads the token from the file, prints one JSON line with the HTTP status and the capability fields, and exits 0 on 200.
+4. Check the receiver really serves them: `health-bridge receiver intake-smoke --url <receiver URL> --token-file <file>`. It reads the token from the file, prints one JSON line with the HTTP status and the capability fields, and exits 0 on 200. It deliberately bypasses `HTTP_PROXY` and `HTTPS_PROXY` (the intake token is never sent through a proxy) and refuses redirects, so a 200 really came from your own receiver. A receiver is only ready for the app when its capabilities list `upsert`, `delete` and `link_projection`.
 5. Inspect evidence locally: `health-bridge query intake-evidence --db <db> [--intake-id <id>] [--all]`. Read-only, same JSON as the `get_intake_evidence_v1` MCP tool.
 6. Revoke or rotate with `health-bridge receiver intake-list-tokens` (prefixes only), `intake-revoke-token --token-prefix <prefix>`, `intake-revoke-producer` (retires the producer and every token it owns) and `intake-reactivate-producer` (restores the identity, not the credentials: issue a new token afterwards).
 
@@ -41,5 +41,15 @@ The receiver side lives in health-relay, so these commands run on the receiver h
 | 200 | Routes enabled and the token works | Nothing; intake uploads will land |
 | 404 | Routes not enabled | Restart the receiver with `--enable-intake-context` |
 | 401 or 403 | Token or producer revoked | Issue a new token, or reactivate the producer |
+| 429 `rate_limited` | Too many requests on this intake token | Wait the `Retry-After` seconds, then try again once (never in a retry loop) |
+
+Rate limits and capabilities caching
+The receiver limits intake per intake token, so a burst can be refused without any configuration change on your side.
+
+- Batch uploads are limited to 60 per 60 seconds per intake token.
+- Capabilities requests are limited to 30 per 60 seconds per token.
+- The two budgets are separate: spending one does not consume the other.
+- Over a limit the receiver answers HTTP 429 with error `rate_limited`, a `Retry-After` header in whole seconds, and closes the connection. Wait that many seconds, then make one request. Do not retry in a loop and do not send several requests at once to "get past" the limit.
+- A 200 capabilities response carries `Cache-Control: private, max-age=300` and `Vary: Authorization`. A client may reuse that answer for five minutes for the same token, so a normal app does not need a capabilities GET per upload. Never share a cached capabilities answer between tokens, and never store it in a shared or public place.
 
 Never paste the database path, pairing codes or tokens into chat logs, notes or issues.
