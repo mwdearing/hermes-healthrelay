@@ -61,7 +61,7 @@ hermes plugins install mwdearing/hermes-healthrelay --force --ref <40-character 
 | `get_sleep_summary` | Sleep sessions and time per stage in a date range |
 | `get_daily_summary` | Per-day totals and statistics across metrics |
 | `explain_sources` | The devices and apps behind the data |
-| `get_intake_evidence_v1` | Which HealthKit sample each intake component claims and whether it is stored here from the registered writer; metadata only |
+| `get_intake_evidence_v1` | Which HealthKit sample each intake component claims and whether it is stored here from the registered writer; identifiers, link status and the producer-supplied component amount and unit, never HealthKit sample values |
 
 Intake evidence needs a receiver with migrations 013 and 014; an older receiver returns an empty answer. The pinned release that has them is `healthrelay-receiver-2026.10.04` (any newer receiver from [health-relay](https://github.com/mwdearing/health-relay) `main` has them too). Install that exact release with:
 ```bash
