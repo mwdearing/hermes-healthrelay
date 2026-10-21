@@ -45,11 +45,24 @@ json_bool() { if [ "$1" = true ]; then printf 'true'; else printf 'false'; fi; }
 
 # --check mode: diagnose without starting the server. --check --json prints the same
 # checks as one JSON object on stdout instead of the text report (exit codes are equal).
+# Local paths (HOME, the db-path file, the database, the launcher) are redacted in
+# both modes unless --show-paths is passed.
 if [ "${1:-}" = "--check" ]; then
   json=0
+  show_paths=0
   for arg in "$@"; do
     if [ "$arg" = "--json" ]; then json=1; fi
+    if [ "$arg" = "--show-paths" ]; then show_paths=1; fi
   done
+
+  # Local paths are redacted by default: both check modes are read into agent
+  # transcripts and pasted into issues, and the setup skill forbids sharing the
+  # database path. --show-paths prints the real values for local diagnosis.
+  redacted="<redacted: local path, pass --show-paths>"
+  path_out() {
+    if [ -n "$1" ] && [ "$show_paths" != 1 ]; then printf '%s' "$redacted"
+    else printf '%s' "$1"; fi
+  }
 
   home_dir="$HOME"
   db_path_file="$home_dir/.config/healthrelay/db-path"
@@ -124,13 +137,13 @@ if [ "${1:-}" = "--check" ]; then
 
   if [ "$json" = 1 ]; then
     printf '{'
-    printf '"home": %s, ' "$(json_value "$home_dir")"
-    printf '"db_path_file": %s, ' "$(json_value "$db_path_file")"
+    printf '"home": %s, ' "$(json_value "$(path_out "$home_dir")")"
+    printf '"db_path_file": %s, ' "$(json_value "$(path_out "$db_path_file")")"
     printf '"db_path_file_found": %s, ' "$(json_bool "$db_path_file_found")"
     printf '"database_source": %s, ' "$(json_value "$db_source")"
-    printf '"database_path": %s, ' "$(json_value "$db")"
+    printf '"database_path": %s, ' "$(json_value "$(path_out "$db")")"
     printf '"database_readable": %s, ' "$(json_bool "$db_readable")"
-    printf '"launcher": %s, ' "$(json_value "$launcher")"
+    printf '"launcher": %s, ' "$(json_value "$(path_out "$launcher")")"
     printf '"health_bridge_version": %s, ' "$(json_value "$version")"
     printf '"schema": %s, ' "$(json_value "$schema")"
     printf '"result": %s' "$(json_value "$result")"
@@ -141,11 +154,11 @@ if [ "${1:-}" = "--check" ]; then
   echo "healthrelay check"
   # The db-path file is read from the HOME of the Hermes process (the MCP server's HOME). If this check
   # runs from another shell (or, in Docker, the agent terminal) the HOME can differ: compare this line.
-  echo "home used for db-path: $home_dir"
+  echo "home used for db-path: $(path_out "$home_dir")"
   if [ "$db_path_file_found" = true ]; then
-    echo "db-path file: $db_path_file (found)"
+    echo "db-path file: $(path_out "$db_path_file") (found)"
   else
-    echo "db-path file: $db_path_file (missing)"
+    echo "db-path file: $(path_out "$db_path_file") (missing)"
   fi
 
   case "$db_source" in
@@ -155,7 +168,7 @@ if [ "${1:-}" = "--check" ]; then
   esac
 
   if [ -n "$db" ]; then
-    echo "database path: $db"
+    echo "database path: $(path_out "$db")"
   else
     echo "database path: (not set)"
   fi
@@ -166,7 +179,7 @@ if [ "${1:-}" = "--check" ]; then
   fi
 
   if [ -n "$launcher" ]; then
-    echo "launcher: $launcher"
+    echo "launcher: $(path_out "$launcher")"
   else
     echo "launcher: none"
   fi
