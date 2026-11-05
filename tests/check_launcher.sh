@@ -36,8 +36,9 @@ out="$(run "$GOODPATH" sh "$launcher" --check 2>&1)"; rc=$?
 [ "$rc" = 2 ] && ok "1 unconfigured exits 2" || bad "1 unconfigured exits 2 (rc=$rc)"
 has "$out" "database source: none" && ok "1 source none" || bad "1 source none: $out"
 has "$out" "result: NOT READY" && has "$out" "~/.config/healthrelay/db-path" && ok "1 fix-it line" || bad "1 fix-it line: $out"
-has "$out" "home used for db-path: $root/home" && ok "1 prints the HOME it resolved" || bad "1 prints the HOME it resolved: $out"
-has "$out" "db-path file: $root/home/.config/healthrelay/db-path (missing)" && ok "1 db-path file missing" || bad "1 db-path file missing: $out"
+has "$out" "home used for db-path: <redacted: local path, pass --show-paths>" && ok "1 home line redacted" || bad "1 home line redacted: $out"
+has "$out" "db-path file: <redacted: local path, pass --show-paths> (missing)" && ok "1 db-path file missing, redacted" || bad "1 db-path file missing, redacted: $out"
+case "$out" in *"$root"*) bad "1 unconfigured output leaks a local path";; *) ok "1 unconfigured output has no local path";; esac
 
 # 2. db-path names a missing file
 echo "$root/missing.sqlite" > "$root/home/.config/healthrelay/db-path"
@@ -50,14 +51,24 @@ rm -f "$STUB_LOG"
 out="$(run "$GOODPATH" sh "$launcher" --check 2>&1)"; rc=$?
 [ "$rc" = 0 ] && ok "3 ready exits 0" || bad "3 ready exits 0 (rc=$rc): $out"
 has "$out" "database source: db-path file" && ok "3 source" || bad "3 source: $out"
-has "$out" "home used for db-path: $root/home" && ok "3 home line" || bad "3 home line: $out"
-has "$out" "db-path file: $root/home/.config/healthrelay/db-path (found)" && ok "3 db-path file found" || bad "3 db-path file found: $out"
-has "$out" "database path: $root/db.sqlite" && ok "3 path" || bad "3 path: $out"
+has "$out" "home used for db-path: <redacted: local path, pass --show-paths>" && ok "3 home line redacted" || bad "3 home line redacted: $out"
+has "$out" "db-path file: <redacted: local path, pass --show-paths> (found)" && ok "3 db-path file found, redacted" || bad "3 db-path file found, redacted: $out"
+has "$out" "database path: <redacted: local path, pass --show-paths>" && ok "3 path redacted" || bad "3 path redacted: $out"
 has "$out" "database readable: yes" && ok "3 readable" || bad "3 readable: $out"
-has "$out" "launcher: $root/bin/health-bridge" && ok "3 launcher" || bad "3 launcher: $out"
+has "$out" "launcher: <redacted: local path, pass --show-paths>" && ok "3 launcher redacted" || bad "3 launcher redacted: $out"
+case "$out" in *"$root"*) bad "3 default check leaks a local path";; *) ok "3 default check has no local path";; esac
 has "$out" "health-bridge version: health-bridge 9.9.9" && ok "3 version" || bad "3 version: $out"
 has "$out" "result: OK" && ok "3 result OK" || bad "3 result OK: $out"
 [ ! -e "$STUB_LOG" ] && ok "3 --check never starts the server" || bad "3 --check started the server: $(cat "$STUB_LOG")"
+
+# 3b. --show-paths restores the real values for local diagnosis
+out="$(run "$GOODPATH" sh "$launcher" --check --show-paths 2>&1)"; rc=$?
+[ "$rc" = 0 ] && ok "3b --show-paths exits 0" || bad "3b --show-paths exits 0 (rc=$rc): $out"
+has "$out" "home used for db-path: $root/home" && ok "3b home line shown" || bad "3b home line shown: $out"
+has "$out" "db-path file: $root/home/.config/healthrelay/db-path (found)" && ok "3b db-path file shown" || bad "3b db-path file shown: $out"
+has "$out" "database path: $root/db.sqlite" && ok "3b path shown" || bad "3b path shown: $out"
+has "$out" "launcher: $root/bin/health-bridge" && ok "3b launcher shown" || bad "3b launcher shown: $out"
+has "$out" "result: OK" && ok "3b result OK" || bad "3b result OK: $out"
 
 # 4. environment wins over the file
 echo "$root/missing.sqlite" > "$root/home/.config/healthrelay/db-path"
@@ -152,17 +163,27 @@ out="$(run "$GOODPATH" sh "$launcher" --check --json 2>/dev/null)"; rc=$?
 [ "$rc" = 0 ] && ok "11 ready: exit 0 like text mode" || bad "11 ready: exit 0 (rc=$rc): $out"
 one_line "$out" && ok "11 ready: one line of stdout" || bad "11 ready: stdout is not a single line: $out"
 case "$out" in "{"*"}") ok "11 ready: stdout is one JSON object" || bad "11 ready: stdout is not one JSON object: $out";; *) bad "11 ready: stdout is not one JSON object: $out";; esac
-has "$out" "\"home\": \"$root/home\"" && ok "11 ready: home key" || bad "11 ready: home key: $out"
-has "$out" "\"db_path_file\": \"$shell_file\"" && ok "11 ready: db_path_file key" || bad "11 ready: db_path_file key: $out"
+has "$out" "\"home\": \"<redacted: local path, pass --show-paths>\"" && ok "11 ready: home redacted" || bad "11 ready: home redacted: $out"
+has "$out" "\"db_path_file\": \"<redacted: local path, pass --show-paths>\"" && ok "11 ready: db_path_file redacted" || bad "11 ready: db_path_file redacted: $out"
 has "$out" '"db_path_file_found": true' && ok "11 ready: db_path_file_found is a JSON boolean" || bad "11 ready: db_path_file_found: $out"
 has "$out" '"database_source": "db_path_file"' && ok "11 ready: source from the db-path file" || bad "11 ready: source: $out"
-has "$out" "\"database_path\": \"$root/db.sqlite\"" && ok "11 ready: path" || bad "11 ready: path: $out"
+has "$out" "\"database_path\": \"<redacted: local path, pass --show-paths>\"" && ok "11 ready: path redacted" || bad "11 ready: path redacted: $out"
 has "$out" '"database_readable": true' && ok "11 ready: database_readable is a JSON boolean" || bad "11 ready: database_readable: $out"
-has "$out" "\"launcher\": \"$root/bin/health-bridge\"" && ok "11 ready: launcher" || bad "11 ready: launcher: $out"
+has "$out" "\"launcher\": \"<redacted: local path, pass --show-paths>\"" && ok "11 ready: launcher redacted" || bad "11 ready: launcher redacted: $out"
 has "$out" '"health_bridge_version": "health-bridge 9.9.9"' && ok "11 ready: version" || bad "11 ready: version: $out"
 has "$out" '"result": "ok"' && ok "11 ready: result" || bad "11 ready: result: $out"
 has "$out" '"' && ok "11 keys are quoted" || bad "11 keys are quoted: $out"
 has "$out" "'" && bad "11 output contains a single quote" || ok "11 output contains no stray quote"
+case "$out" in *"$root"*) bad "11 ready JSON leaks a local path";; *) ok "11 ready JSON has no local path";; esac
+
+# 11f. --check --json --show-paths: the real values are restored
+out="$(run "$GOODPATH" sh "$launcher" --check --json --show-paths 2>/dev/null)"; rc=$?
+[ "$rc" = 0 ] && one_line "$out" && ok "11f show-paths JSON: exit 0, one line" || bad "11f show-paths JSON: exit 0, one line (rc=$rc): $out"
+has "$out" "\"home\": \"$root/home\"" && ok "11f home shown" || bad "11f home shown: $out"
+has "$out" "\"db_path_file\": \"$shell_file\"" && ok "11f db_path_file shown" || bad "11f db_path_file shown: $out"
+has "$out" "\"database_path\": \"$root/db.sqlite\"" && ok "11f path shown" || bad "11f path shown: $out"
+has "$out" "\"launcher\": \"$root/bin/health-bridge\"" && ok "11f launcher shown" || bad "11f launcher shown: $out"
+has "$out" "\"result\": \"ok\"" && ok "11f result ok" || bad "11f result ok: $out"
 
 # 11b. plain --check output is unchanged by the new flag
 out="$(run "$GOODPATH" sh "$launcher" --check 2>/dev/null)"
@@ -185,7 +206,7 @@ out="$(run "$BADPATH" sh "$launcher" --check --json 2>/dev/null)"; rc=$?
 # 11d. a path holding a quote and a backslash is JSON-escaped
 weird="$root/we\"ird\\path.sqlite"
 echo synthetic > "$weird"
-out="$(run "$GOODPATH" HEALTHRELAY_DB="$weird" sh "$launcher" --check --json 2>/dev/null)"; rc=$?
+out="$(run "$GOODPATH" HEALTHRELAY_DB="$weird" sh "$launcher" --check --json --show-paths 2>/dev/null)"; rc=$?
 [ "$rc" = 0 ] && one_line "$out" && ok "11d weird path: exit 0, one line" || bad "11d weird path: exit 0, one line (rc=$rc): $out"
 has "$out" "\"database_path\": \"$root/we\\\"ird\\\\path.sqlite\"" && ok "11d weird path: quote and backslash escaped" || bad "11d weird path: escaped path: $out"
 has "$out" '"result": "ok"' && ok "11d weird path: still ok" || bad "11d weird path: still ok: $out"
